@@ -5,6 +5,10 @@ import time
 import sys
 import itertools
 import threading
+import spacy
+import json
+from collections import Counter
+import torch
 
 def spinner_animation(stop_event):
     """Displays a simple spinner animation in the console."""
@@ -29,14 +33,19 @@ def download_audio(video_url, output_filename="audio.mp3"):
     print(f"Audio downloaded successfully as '{output_path}.mp3'")
     return f'{output_path}.mp3'
 
-import time # Add this import to the top of your script
 
 def transcribe_audio(audio_path, output_filename="transcript.txt"):
     """Transcribes an audio file using Whisper and times the process."""
-    print("Loading Whisper model (base)...")
-    model = whisper.load_model("base")
+    # Detect if GPU is available
+    device = "cuda" if torch.cuda.is_available() else "cpu" 
+
+    # Pick model size depending on device
+    model_name = "base" if device == "cuda" else "base" # Use "small" for GPU, "base" for CPU (base here for faster demo)
+
+    print("Loading Whisper model (base/small based on CPU/GPU availability)...")
+    print(f"Loading Whisper model '{model_name}' on {device.upper()}...")
     
-    # print("Starting transcription... (This may take a while)")
+    model = whisper.load_model(model_name, device=device)
 
     # --- Spinner Setup ---
     stop_spinner = threading.Event()
@@ -52,7 +61,8 @@ def transcribe_audio(audio_path, output_filename="transcript.txt"):
     
     try:
         # This is the long-running task
-        result = model.transcribe(audio_path, fp16=False)
+         result = model.transcribe(audio_path, fp16=(device == "cuda"))
+
     finally:
         # --- Stop the Spinner ---
         stop_spinner.set()
@@ -129,6 +139,45 @@ def get_transcript(video_url, transcript_filename="transcript.txt"):
         transcribed_file = transcribe_audio(audio_file)
         os.remove(audio_file)
         return transcribed_file
+    
+
+def enrich_and_save_json(transcript_path, output_filename="summary.json"):
+    """
+    Processes a transcript to extract entities, counts them,
+    and saves everything to a structured JSON file.
+    """
+    print("\nStarting NLP enrichment and JSON creation...")
+    nlp = spacy.load("en_core_web_sm")
+    
+    with open(transcript_path, 'r', encoding='utf-8') as f:
+        transcript_text = f.read()
+        
+    doc = nlp(transcript_text)
+    
+    # 1. Extract unique entities (text and label)
+    unique_entities = sorted(list(set([(ent.text.strip(), ent.label_) for ent in doc.ents])))
+    
+    # 2. Count the frequency of each entity text
+    entity_texts = [ent.text.strip() for ent in doc.ents]
+    entity_counts = Counter(entity_texts)
+    
+    # 3. Assemble the final data structure
+    output_data = {
+        "full_transcript": transcript_text,
+        "summary_points": [], # We'll populate this in a future step
+        "entities": [
+            {"text": text, "label": label, "count": entity_counts[text]}
+            for text, label in unique_entities
+        ]
+    }
+    
+    # 4. Write the data to a JSON file
+    with open(output_filename, 'w', encoding='utf-8') as f:
+        json.dump(output_data, f, indent=4, ensure_ascii=False)
+        
+    print(f"Enriched data saved to '{output_filename}'")
+    return output_filename
+
 
 if __name__ == '__main__':
     YOUTUBE_URL = "https://youtu.be/CxVXvFOPIyQ?si=QyziI5rKLPdcPF-s"
@@ -136,5 +185,9 @@ if __name__ == '__main__':
     try:
         final_transcript_file = get_transcript(YOUTUBE_URL)
         print(f"\n✅ Success! Final transcript is ready in '{final_transcript_file}'")
+        
+        # Replace the old enrichment step with the new one
+        enrich_and_save_json(final_transcript_file)
+
     except Exception as e:
         print(f"\n❌ An error occurred in the main process: {e}")
