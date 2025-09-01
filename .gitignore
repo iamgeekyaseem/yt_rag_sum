@@ -2,3 +2,4 @@ aienv
 *.mp3
 # *.txt
 __pycache__/
+.env

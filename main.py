@@ -9,15 +9,60 @@ import spacy
 import json
 from collections import Counter
 import torch
+from sentence_transformers import SentenceTransformer
+import chromadb
+from dotenv import load_dotenv
+import google.generativeai as genai
 
-def spinner_animation(stop_event):
-    """Displays a simple spinner animation in the console."""
-    spinner = itertools.cycle(['|', '/', '-', '\\'])
-    while not stop_event.is_set():
-        sys.stdout.write(next(spinner))  # Write the character
-        sys.stdout.flush()               # Flush the output
-        sys.stdout.write('\b')           # Move the cursor back
-        time.sleep(0.1)
+# Load environment variables from .env file
+load_dotenv()
+
+# Get the API key from the environment variable
+YOUR_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+if not YOUR_API_KEY:
+    raise ValueError("Gemini API key not found. Please set the GEMINI_API_KEY in your .env file.")
+
+genai.configure(api_key=YOUR_API_KEY)
+
+def answer_question(question, collection_name="video_transcript"):
+    """
+    Answers a question based on the indexed transcript.
+    """
+    # 1. Initialize models and database
+    embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+    llm = genai.GenerativeModel('gemini-1.5-flash')
+    client = chromadb.PersistentClient(path="./chroma_db")
+    collection = client.get_collection(name=collection_name)
+    
+    # 2. Create an embedding for the user's question
+    question_embedding = embedding_model.encode(question).tolist()
+    
+    # 3. Query the vector database for relevant chunks
+    results = collection.query(
+        query_embeddings=[question_embedding],
+        n_results=5  # Retrieve the top 5 most relevant chunks
+    )
+    context = "\n".join(results['documents'][0])
+    
+    # 4. Construct the prompt for the LLM 📄
+    prompt_template = f"""
+    You are a helpful assistant who answers questions based on the provided video transcript.
+    Answer the following question based ONLY on the context below.
+    If the answer is not in the context, say "I don't have enough information from the video to answer."
+
+    CONTEXT:
+    {context}
+
+    QUESTION:
+    {question}
+    """
+    
+    # 5. Get the answer from the LLM
+    response = llm.generate_content(prompt_template)
+    
+    return response.text
+
 
 def download_audio(video_url, output_filename="audio.mp3"):
     """Downloads the audio from a YouTube URL using yt-dlp."""
@@ -32,6 +77,16 @@ def download_audio(video_url, output_filename="audio.mp3"):
     subprocess.run(command, check=True)
     print(f"Audio downloaded successfully as '{output_path}.mp3'")
     return f'{output_path}.mp3'
+
+def spinner_animation(stop_event):
+    """Displays a simple spinner animation in the console."""
+    spinner = itertools.cycle(['|', '/', '-', '\\'])
+    while not stop_event.is_set():
+        sys.stdout.write(next(spinner))  # Write the character
+        sys.stdout.flush()               # Flush the output
+        sys.stdout.write('\b')           # Move the cursor back
+        time.sleep(0.1)
+
 
 
 def transcribe_audio(audio_path, output_filename="transcript.txt"):
@@ -179,15 +234,77 @@ def enrich_and_save_json(transcript_path, output_filename="summary.json"):
     return output_filename
 
 
-if __name__ == '__main__':
-    YOUTUBE_URL = "https://youtu.be/CxVXvFOPIyQ?si=QyziI5rKLPdcPF-s"
-    print(f"Processing video: {YOUTUBE_URL}")
-    try:
-        final_transcript_file = get_transcript(YOUTUBE_URL)
-        print(f"\n✅ Success! Final transcript is ready in '{final_transcript_file}'")
+def create_vector_store(json_path, collection_name="video_transcript"):
+    """
+    Creates a vector store from the transcript in the JSON file.
+    """
+    print("\nCreating vector store for Q&A...")
+    
+    # 1. Load the transcript from the JSON file
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    transcript = data['full_transcript']
+    
+    # 2. Chunk the transcript
+    # A simple strategy: split the text into chunks of a certain size.
+    # More advanced strategies could use sentence splitting (with spaCy or NLTK).
+    text_chunks = [transcript[i:i + 1000] for i in range(0, len(transcript), 1000)]
+    print(f"Transcript split into {len(text_chunks)} chunks.")
+    
+    # 3. Load the embedding model
+    print("Loading embedding model...")
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    
+    # 4. Create embeddings
+    print("Creating embeddings for text chunks...")
+    embeddings = model.encode(text_chunks, show_progress_bar=True)
+    
+    # 5. Initialize ChromaDB and create a collection
+    # This will create a local folder to store the database.
+    client = chromadb.PersistentClient(path="./chroma_db")
+    collection = client.get_or_create_collection(name=collection_name)
+    
+    # 6. Store the chunks and their embeddings in the collection
+    print("Adding embeddings to the vector store...")
+    for i, chunk in enumerate(text_chunks):
+        collection.add(
+            ids=[str(i)],
+            documents=[chunk],
+            embeddings=[embeddings[i].tolist()]
+        )
         
-        # Replace the old enrichment step with the new one
-        enrich_and_save_json(final_transcript_file)
+    print(f"✅ Vector store created successfully with {collection.count()} items.")
+    return collection
+
+
+if __name__ == '__main__':
+    # YOUTUBE_URL = "https://youtu.be/CxVXvFOPIyQ?si=QyziI5rKLPdcPF-s"
+    # print(f"Processing video: {YOUTUBE_URL}")
+    try:
+    #     final_transcript_file = get_transcript(YOUTUBE_URL)
+    #     print(f"\n✅ Success! Transcript is ready in '{final_transcript_file}'")
+        
+    #     summary_file = enrich_and_save_json(final_transcript_file)
+
+        summary_file = "summary.json"
+        print(f"✅ Enriched data saved to '{summary_file}'")
+        
+        # Add the new vector store creation step
+        create_vector_store(summary_file)
+
+        # --- Interactive Q&A Loop ---
+        print("\n---")
+        print("✅ Setup complete! You can now ask questions about the video.")
+        print("Type 'quit' to exit.")
+        
+        while True:
+            user_question = input("\nYour Question: ")
+            if user_question.lower() == 'quit':
+                break
+                
+            print("\nThinking...")
+            answer = answer_question(user_question)
+            print(f"\nAnswer: {answer}")
 
     except Exception as e:
         print(f"\n❌ An error occurred in the main process: {e}")
