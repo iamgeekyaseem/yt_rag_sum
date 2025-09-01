@@ -1,0 +1,4 @@
+aienv
+*.mp3
+*.txt
+__pycache__/
