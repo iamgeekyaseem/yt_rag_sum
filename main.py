@@ -21,7 +21,7 @@ load_dotenv()
 YOUR_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 if not YOUR_API_KEY:
-    raise ValueError("Gemini API key not found. Please set the GEMINI_API_KEY in your .env file.")
+    raise ValueError("Gemini API key not found. Please set the GOOGLE_API_KEY in your private-env file.")
 
 genai.configure(api_key=YOUR_API_KEY)
 
@@ -278,15 +278,15 @@ def create_vector_store(json_path, collection_name="video_transcript"):
 
 
 if __name__ == '__main__':
-    # YOUTUBE_URL = "https://youtu.be/CxVXvFOPIyQ?si=QyziI5rKLPdcPF-s"
-    # print(f"Processing video: {YOUTUBE_URL}")
+    YOUTUBE_URL = "https://youtu.be/CxVXvFOPIyQ?si=QyziI5rKLPdcPF-s"
+    print(f"Processing video: {YOUTUBE_URL}")
     try:
-    #     final_transcript_file = get_transcript(YOUTUBE_URL)
-    #     print(f"\n✅ Success! Transcript is ready in '{final_transcript_file}'")
+        final_transcript_file = get_transcript(YOUTUBE_URL)
+        print(f"\n✅ Success! Transcript is ready in '{final_transcript_file}'")
         
-    #     summary_file = enrich_and_save_json(final_transcript_file)
+        summary_file = enrich_and_save_json(final_transcript_file)
 
-        summary_file = "summary.json"
+        # summary_file = "summary.json"
         print(f"✅ Enriched data saved to '{summary_file}'")
         
         # Add the new vector store creation step
