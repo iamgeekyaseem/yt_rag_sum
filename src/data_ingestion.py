@@ -5,7 +5,7 @@ import threading
 import whisper
 import torch
 import ux.loading_anim_cli as loading
-import config
+import config as config
 import sys
 
 

@@ -3,7 +3,7 @@ import chromadb
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
-import config
+import config as config
 import ux.loading_anim_cli as loading
 import data_ingestion as digest
 import nlp_processor as nlp
@@ -57,13 +57,6 @@ def answer_question(question, collection_name="video_transcript"):
     response = llm.generate_content(prompt_template)
     
     return response.text
-
-
-
-    
-
-
-
 
 
 

@@ -1,7 +1,7 @@
 import  spacy
 import json
 from collections import Counter
-import config
+import config as config
 
 
 def enrich_and_save_json(transcript_path, output_filename=config.SUMMARY_JSON_FILE):

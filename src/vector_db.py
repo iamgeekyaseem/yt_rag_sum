@@ -2,7 +2,7 @@ import os
 import json
 import chromadb
 from sentence_transformers import SentenceTransformer
-import config
+import config as config
 
 
 
