@@ -4,7 +4,7 @@
 EMBEDDING_MODEL = 'all-MiniLM-L6-v2'
 LLM_MODEL = 'gemini-1.5-flash'
 WHISPER_MODEL_CPU = 'base'  # Use 'tiny' or 'base' for faster performance on CPU
-WHISPER_MODEL_GPU = 'base'  # Consider 'small' or 'medium' for better performance on GPU
+WHISPER_MODEL_GPU = 'small'  # Consider 'small' or 'medium' for better performance on GPU
 SPACY_MODEL = 'en_core_web_sm'
 
 # --- RAG Configuration ---
@@ -23,4 +23,4 @@ AUDIO_FILE = "audio.mp3"
 GOOGLE_API_KEY_NAME = "GOOGLE_API_KEY"
 
 # --- YouTube URL ---
-YOUTUBE_URL = "https://youtu.be/CxVXvFOPIyQ?si=QyziI5rKLPdcPF-s"
+YOUTUBE_URL = "https://youtu.be/SC2eSujzrUY?si=Rab4PBB6hUtU1eUI"

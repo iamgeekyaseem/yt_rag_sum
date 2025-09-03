@@ -8,6 +8,7 @@ import ux.loading_anim_cli as loading
 import data_ingestion as digest
 import nlp_processor as nlp
 from vector_db import create_vector_store
+import argparse
 
 # Load environment variables from .env file
 load_dotenv()
@@ -61,8 +62,18 @@ def answer_question(question, collection_name="video_transcript"):
 
 
 if __name__ == '__main__':
-    YOUTUBE_URL = config.YOUTUBE_URL 
+    # 1. Set up the argument parser
+    parser = argparse.ArgumentParser(description="Process a YouTube video to create a searchable Q&A database.")
+    parser.add_argument("video_url", help="The full URL of the YouTube video to process.")
+
+    # 2. Parse the arguments provided by the user
+    args = parser.parse_args()
+
+    # 3. Use the provided URL
+    YOUTUBE_URL = args.video_url
     print(f"Processing video: {YOUTUBE_URL}")
+    print("This may take a few minutes...")
+
     try:
         final_transcript_file = digest.get_transcript(YOUTUBE_URL)
         print(f"\n✅ Success! Transcript is ready in '{final_transcript_file}'")
