@@ -34,6 +34,15 @@ def create_vector_store(json_path, collection_name= config.DB_COLLECTION_NAME):
     # 5. Initialize ChromaDB and create a collection
     # This will create a local folder to store the database.
     client = chromadb.PersistentClient(path=config.DB_PATH)
+
+    # Check if the collection already exists and delete it
+    if config.DB_COLLECTION_NAME in [c.name for c in client.list_collections()]:
+        print(f"Deleting existing collection: '{config.DB_COLLECTION_NAME}'")
+        client.delete_collection(name=config.DB_COLLECTION_NAME)
+
+    # Create a new, empty collection
+    collection = client.create_collection(name=config.DB_COLLECTION_NAME)
+    # ----------------------
     collection = client.get_or_create_collection(name=config.DB_COLLECTION_NAME)
     
     # 6. Store the chunks and their embeddings in the collection
